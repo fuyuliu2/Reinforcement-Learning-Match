@@ -14,7 +14,7 @@ class VirtualMarketEnv(Env):
 
     MAX_ENV_STEP = 14 # Number of test days in the current phase
     DISCOUNT_COUPON_LIST = [0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60]
-    ROI_THRESHOLD = 9.0
+    ROI_THRESHOLD = 7.0
     # In real validation environment, if we do not send any coupons in 14 days, we can get this gmv value
     ZERO_GMV = 81840.0763705537
 
@@ -22,8 +22,8 @@ class VirtualMarketEnv(Env):
                  initial_user_states: np.ndarray,
                  venv_model: object,
                  act_num_size: List[int] = [6, 8],
-                 obs_size: int = 14,
-                 device: torch.device = torch.device('cpu'),
+                 obs_size: int = 30,
+                 device: torch.device = torch.device('cuda'),
                  seed_number: int = 0):
         """
         Args:
@@ -66,7 +66,8 @@ class VirtualMarketEnv(Env):
         day_order_num, day_average_fee = user_actions[..., 0], user_actions[..., 1]
         # Compute next states
         with np.errstate(invalid="ignore", divide="ignore"):
-            self.states = user_states.get_next_state(self.states, day_order_num, day_average_fee, np.empty(self.states.shape))
+            self.states = user_states.get_next_state(self.states, day_order_num, day_average_fee, coupon_num,
+                                                     coupon_discount, np.empty(self.states.shape))
         info = {
             "CouponNum": coupon_num[0],
             "CouponDiscount": coupon_discount[0],
@@ -112,7 +113,7 @@ class VirtualMarketEnv(Env):
         return user_states.states_to_observation(self.states)
 
 
-def get_env_instance(states_path, venv_model_path, device = torch.device('cpu')):
+def get_env_instance(states_path, venv_model_path, device=torch.device('cuda')):
     initial_states = np.load(states_path)
     with open(venv_model_path, 'rb') as f:
         venv_model = pk.load(f, encoding='utf-8')

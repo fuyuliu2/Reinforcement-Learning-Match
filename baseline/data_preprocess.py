@@ -41,14 +41,15 @@ def data_preprocess(offline_data_path: str, base_days=30):
             day_order_num   = day_user_data["day_order_num"].to_numpy()
             day_average_fee = day_user_data["day_average_order_fee"].to_numpy()
             # Unroll next state
-            next_states = user_states.get_next_state(states, day_order_num, day_average_fee, np.empty(states.shape))
+            next_states = user_states.get_next_state(states, day_order_num, day_average_fee, day_coupon_num,
+                                                     coupon_discount, np.empty(states.shape))
             # Collect data for new offline dataset
             if current_day >= base_days:
                 user_states_by_day.append(states)
                 user_actions_by_day.append(np.column_stack((day_order_num, day_average_fee)))
                 coupon_actions_by_day.append(np.column_stack((day_coupon_num, coupon_discount)))
             if current_day >= total_days:
-                evaluation_start_states = next_states # Evaluation starts from the final state in the offline dataset
+                evaluation_start_states = next_states  # Evaluation starts from the final state in the offline dataset
             states = next_states
 
     # Group states by users (by trajectory) and generate processed offline dataset
@@ -62,17 +63,19 @@ def data_preprocess(offline_data_path: str, base_days=30):
     new_offline_data = pd.DataFrame(
         data=np.concatenate([traj_indices, venv_dataset["state"], venv_dataset["action_1"], venv_dataset["action_2"], step_indices], -1),
         columns=["index", *user_states.get_state_names(), "day_deliver_coupon_num", "coupon_discount", "day_order_num", "day_average_order_fee", "step"])
-
-    return new_offline_data, np.array(user_states_by_day), evaluation_start_states, venv_dataset
+    user_start = new_offline_data[new_offline_data['step'] == 0]
+    user_index = user_start[user_start['use_discount_day'] < 1]['index'].tolist()
+    return new_offline_data, np.array(user_states_by_day), evaluation_start_states, venv_dataset, user_index
 
 
 if __name__ == "__main__":
     offline_data = sys.argv[1]
-    new_offline_data, user_states_by_day, evaluation_start_states, new_offline_data_dict = data_preprocess(offline_data)
+    new_offline_data, user_states_by_day, evaluation_start_states, new_offline_data_dict, class_0_user = data_preprocess(offline_data)
     print(new_offline_data.shape)
     print(user_states_by_day.shape)
     print(evaluation_start_states.shape)
-    new_offline_data.to_csv('offline_592_3_dim_state.csv', index=False)
+    new_offline_data.to_csv('offline_592_8_dim_state.csv', index=False)
     np.save('user_states_by_day.npy', user_states_by_day)
     np.save('evaluation_start_states.npy', evaluation_start_states)
+    np.save('user_classification.npy', class_0_user)
     np.savez('venv.npz', **new_offline_data_dict)

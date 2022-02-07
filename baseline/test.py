@@ -38,3 +38,16 @@ user_actions = node_values['action_2']
 day_order_num, day_avg_fee = user_actions[..., 0].round(), user_actions[..., 1].round(2)
 print(day_order_num.reshape((-1,))[:100])
 print(day_avg_fee.reshape((-1,))[:100])
+
+"""
+1. python $BASELINE_ROOT/data_preprocess.py offline_592_1000.csv
+运行newbaseline里的preprocess获取三列的状态，获得user_states_by_day.npy，evaluation_start_states.npy，venv.npz待用
+2. 修改ppo，修改完成后运行train_policy:
+mkdir -p logs
+mkdir -p model_checkpoints
+python $BASELINE_ROOT/train_policy.py
+venv.pkl使用压缩包里的文件
+3. 训练一段时间前往model_checkpoints里查看，若有rlmodel（文件名带步数），可将其重命名为rl_model.zip作为最终训练完成的文件待用
+4. 运行本文件test查看每日策略情况
+
+"""

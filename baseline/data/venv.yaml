@@ -6,33 +6,73 @@ metadata:
     - state
     - action_1
     next_state:
+    - action_1
     - action_2
     - state
+#    next_action_1:
+#    - action_1
+#    next_action_2:
+#    - action_2
   columns:
+  - total_day:
+      dim: state
+      type: continuous
+      min: 0
+      max: 30
+  - use_discount_day:
+      dim: state
+      type: continuous
+      min: 0
+      max: 25
   - total_num:
       dim: state
       # type: discrete
       # num: 181
       type: continuous
       min: 0
-      max: 120 # 180 is too big
+      max: 60 # 180 is too big
   - average_num:
       dim: state
       type: continuous
       min: 0
-      max: 4 # 6 is too big
+      max: 2.5
   - average_fee:
       dim: state
       type: continuous
       min: 0
-      max: 60 # 100 is too big
+      max: 65 # 100 is too big
+  - coupon_use:
+      dim: state
+      type: continuous
+      min: 0
+      max: 2
+  - avg_used_discount:
+      dim: state
+      type: continuous
+      min: 0.6
+      max: 0.95
+  - order_day:
+      dim: state
+      type: continuous
+      min: 0
+      max: 1
+  - coupon_order:
+      dim: state
+      type: continuous
+      min: 0
+      max: 1
+  - discount_fee:
+      dim: state
+      type: continuous
+      min: 0
+      max: 1
   - day_deliver_coupon_num:
       dim: action_1
       # type: discrete
       # num: 6
       type: continuous
       min: 0
-      max: 5
+      max: 4
       # type: category
       # values: [0, 1, 2, 3, 4, 5]
   - coupon_discount:
@@ -44,13 +84,23 @@ metadata:
       max: 0.95
       # type: category
       # values: [0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60]
+#  - num_of_coupon:
+#      dim: coupon
+#      type: continuous
+#      min: 0
+#      max: 5
+#  - discount_of_coupon:
+#      dim: coupon
+#      type: continuous
+#      min: 0.6
+#      max: 0.95
   - day_order_num:
       dim: action_2
       # type: discrete
       # num: 7
       type: continuous
       min: 0
-      max: 5
+      max: 4
       # type: category
       # values: [0, 1, 2, 3, 4, 5, 6]
   - day_average_order_fee:
@@ -58,9 +108,25 @@ metadata:
       type: continuous
       min: 0
       max: 65 # 100 is too big
+#  - num_of_order:
+#      dim: user
+#      type: continuous
+#      min: 0
+#      max: 5
+#  - num_of_order_fee:
+#      dim: user
+#      type: continuous
+#      min: 0
+#      max: 65
   expert_functions:
     next_state:
       'node_function' : 'function_decision.get_next_state'
+#    next_action_1:
+#      'node_function' : 'function_decision.get_coupon_action'
+#    next_action_2:
+#      'node_function' : 'function_decision.get_user_action'
 
-# change some columns' maximum to fit the data
-# change expert_functions' module name (venv to function_decision)
+# 1.change some columns' maximum to fit the data
+# 2.change expert_functions' module name (venv to function_decision)
+# 3.add two node:coupon, user to constraint action_1 and action_2
+# 4.add expert function for two new nodes
