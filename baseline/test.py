@@ -30,14 +30,17 @@ for day_index in range(validation_length):
 with open(f"venv.pkl", "rb") as f:
     venv = pk.load(f, encoding="utf-8")
 
-initial_states = np.load(f"user_states_by_day.npy")[10]
+initial_states = np.load(f"evaluation_start_states.npy")
 coupon_actions = np.array([(5, 0.95) for _ in range(initial_states.shape[0])])
 
 node_values = venv.infer_one_step({"state": initial_states, "action_1": coupon_actions})
 user_actions = node_values['action_2']
 day_order_num, day_avg_fee = user_actions[..., 0].round(), user_actions[..., 1].round(2)
-print(day_order_num.reshape((-1,))[:100])
-print(day_avg_fee.reshape((-1,))[:100])
+day_avg_fee[day_order_num <= 0] = 0.0
+day_order_num[day_avg_fee <= 0.15] = 0
+day_avg_fee[day_order_num <= 0] = 0.0
+print(day_order_num.reshape((-1,))[:300])
+print(day_avg_fee.reshape((-1,))[:300])
 
 """
 1. python $BASELINE_ROOT/data_preprocess.py offline_592_1000.csv

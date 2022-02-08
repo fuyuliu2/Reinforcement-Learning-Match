@@ -20,7 +20,8 @@ def get_next_state(states, day_order_num, day_average_fee, coupon_num, coupon_di
     coupon_num = coupon_num.clip(0, 5).round()
     coupon_discount = (coupon_discount * 20).round() / 20
     # Rules on the user action: if either action is 0 (order num or fee), the other action should also be 0.
-    day_order_num[day_average_fee <= 0.0] = 0
+    day_average_fee[day_order_num <= 0] = 0.0
+    day_order_num[day_average_fee <= 0.15] = 0
     day_average_fee[day_order_num <= 0] = 0.0
     # We compute the days accumulated for each user's state by dividing the total order num with average order num
     accumulated_days = states[..., 2] / states[..., 3]
@@ -58,7 +59,8 @@ def get_next_state_torch(states, day_order_num, day_average_fee, coupon_num, cou
     coupon_num = coupon_num.clip(0, 5).round()
     coupon_discount = (coupon_discount * 20).round() / 20
     # Rules on the user action: if either action is 0 (order num or fee), the other action should also be 0.
-    day_order_num[day_average_fee <= 0.0] = 0
+    day_average_fee[day_order_num <= 0] = 0.0
+    day_order_num[day_average_fee <= 0.15] = 0
     day_average_fee[day_order_num <= 0] = 0.0
     # We compute the days accumulated for each user's state by dividing the total order num with average order num
     accumulated_days = states[..., 0] / states[..., 1]
@@ -104,21 +106,28 @@ def states_to_observation(states: np.ndarray, day_total_order_num: int = 0, day_
         The states of a user community (np.array)
     """
     assert len(states.shape) == 2
-    index = np.load('user_classification.npy', mmap_mode='r').astype(int)
-    # delete some lazy users
-    activate_states = np.delete(states, index, 0)
-    activate_states = np.delete(activate_states, [0, 1], 1)
+    # index = np.load('user_classification.npy', mmap_mode='r').astype(int)
+    # # delete some lazy users
+    # activate_states = np.delete(states, index, 0)
+    activate_states = np.delete(states, [0, 1], 1)
+    p_1 = activate_states[:, 7]
+    p_2 = np.minimum(activate_states[:, 3], 1)
+    p_3 = activate_states[:, 1] * activate_states[:, 2]
+
     # pca
-    pca = PCA(n_components=4).fit_transform(activate_states)
+    # pca = PCA(n_components=4).fit_transform(activate_states)
     # minibatchkmeans
     # k_means = MiniBatchKMeans(n_clusters=3, init='k-means++', max_iter=500, batch_size=100).fit(pca)
-    lower_obs = np.quantile(pca, 0.25, interpolation='lower', axis=0)
-    higher_obs = np.quantile(pca, 0.75, interpolation='higher', axis=0)
-    median_obs = np.quantile(pca, 0.5, axis=0)
-    mean_obs = np.mean(pca, axis=0)
-    std_obs = np.std(pca, axis=0)
-    max_obs = np.max(pca, axis=0)
-    min_obs = np.min(pca, axis=0)
+    # lower_obs = np.quantile(activate_states, 0.25, interpolation='lower', axis=0)
+    # higher_obs = np.quantile(activate_states, 0.75, interpolation='higher', axis=0)
+    lower_obs = np.average(activate_states, weights=p_1, axis=0)
+    higher_obs = np.average(activate_states, weights=p_2, axis=0)
+    mean_obs = np.average(activate_states, weights=p_3, axis=0)
+    median_obs = np.quantile(activate_states, 0.5, axis=0)
+    # mean_obs = np.mean(pca, axis=0)
+    # std_obs = np.std(pca, axis=0)
+    # max_obs = np.max(pca, axis=0)
+    # min_obs = np.min(pca, axis=0)
     day_total_order_num, day_roi = np.array([day_total_order_num]), np.array([day_roi])
-    return np.concatenate([lower_obs, median_obs, higher_obs, mean_obs, std_obs, max_obs, min_obs, day_total_order_num, day_roi], 0)
+    return np.concatenate([lower_obs, median_obs, higher_obs, mean_obs, day_total_order_num, day_roi], 0)
     # return np.concatenate([k_means.cluster_centers_.flatten(), mean_obs, std_obs, max_obs, min_obs, day_total_order_num, day_roi], 0)

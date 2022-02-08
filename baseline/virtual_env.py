@@ -15,6 +15,7 @@ class VirtualMarketEnv(Env):
     MAX_ENV_STEP = 14 # Number of test days in the current phase
     DISCOUNT_COUPON_LIST = [0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60]
     ROI_THRESHOLD = 7.0
+    ROI_THRESHOLD_HIGH = 9.0
     # In real validation environment, if we do not send any coupons in 14 days, we can get this gmv value
     ZERO_GMV = 81840.0763705537
 
@@ -22,7 +23,7 @@ class VirtualMarketEnv(Env):
                  initial_user_states: np.ndarray,
                  venv_model: object,
                  act_num_size: List[int] = [6, 8],
-                 obs_size: int = 30,
+                 obs_size: int = 34,
                  device: torch.device = torch.device('cuda'),
                  seed_number: int = 0):
         """
@@ -63,7 +64,10 @@ class VirtualMarketEnv(Env):
         # Feed the state and the same coupon actions to decision graph, to fetch the user's response actions
         venv_infer_result = self.venv_model.infer_one_step({"state": self.states, "action_1": coupon_actions})
         user_actions = venv_infer_result["action_2"]
-        day_order_num, day_average_fee = user_actions[..., 0], user_actions[..., 1]
+        day_order_num, day_average_fee = np.round(user_actions[..., 0]).clip(0, 5), user_actions[..., 1].clip(0, 60)
+        day_average_fee[day_order_num <= 0] = 0.0
+        day_order_num[day_average_fee <= 0.15] = 0.0
+        day_average_fee[day_order_num <= 0] = 0.0
         # Compute next states
         with np.errstate(invalid="ignore", divide="ignore"):
             self.states = user_states.get_next_state(self.states, day_order_num, day_average_fee, coupon_num,
@@ -71,8 +75,8 @@ class VirtualMarketEnv(Env):
         info = {
             "CouponNum": coupon_num[0],
             "CouponDiscount": coupon_discount[0],
-            "UserAvgOrders": day_order_num.mean(),
-            "UserAvgFee": day_average_fee.mean(),
+            "UserAvgOrders": np.mean(list(filter(lambda x: x > 0, day_order_num))),
+            "UserAvgFee": np.mean(list(filter(lambda x: x > 0, day_average_fee))),
             "NonZeroOrderCount": np.count_nonzero(day_order_num)
         }
         # Compute reward related variables
@@ -81,11 +85,26 @@ class VirtualMarketEnv(Env):
         day_gmv = day_average_fee * day_order_num - day_cost
         day_total_cost = np.sum(day_cost)
         day_total_gmv = np.sum(day_gmv)
+        day_roi = day_total_gmv / max(day_total_cost, 1)
+        info["day_total_cost"] = day_total_cost
+        info["day_total_gmv"] = day_total_gmv
+        info["day_roi"] = day_roi
         self.total_gmv += day_total_gmv
         self.total_cost += day_total_cost
         # Compute rewards
-        if (self.current_env_step+1) < VirtualMarketEnv.MAX_ENV_STEP:
-            reward = 0
+        day_avg_incentive = (-(day_order_num > coupon_num).astype(int)).mean()
+        incentive_weight = 2
+
+        if (self.current_env_step + 1) < VirtualMarketEnv.MAX_ENV_STEP:
+            # reward = 0
+            reward = day_total_gmv / (VirtualMarketEnv.ZERO_GMV / VirtualMarketEnv.MAX_ENV_STEP) \
+                     + incentive_weight * day_avg_incentive
+            if day_roi > VirtualMarketEnv.ROI_THRESHOLD_HIGH:
+                reward += 0.3 * (VirtualMarketEnv.ROI_THRESHOLD_HIGH - day_roi)
+            elif day_roi < VirtualMarketEnv.ROI_THRESHOLD:
+                reward += 0.3 * (day_roi - VirtualMarketEnv.ROI_THRESHOLD)
+            else:
+                reward += 1.5
         else:
             avg_roi = self.total_gmv / max(self.total_cost, 1)
             if avg_roi >= VirtualMarketEnv.ROI_THRESHOLD:

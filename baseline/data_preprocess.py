@@ -48,7 +48,7 @@ def data_preprocess(offline_data_path: str, base_days=30):
                 user_states_by_day.append(states)
                 user_actions_by_day.append(np.column_stack((day_order_num, day_average_fee)))
                 coupon_actions_by_day.append(np.column_stack((day_coupon_num, coupon_discount)))
-            if current_day >= total_days:
+            if current_day + 1 >= total_days:
                 evaluation_start_states = next_states  # Evaluation starts from the final state in the offline dataset
             states = next_states
 

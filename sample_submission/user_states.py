@@ -39,3 +39,5 @@ def states_to_observation(states: np.ndarray, day_total_order_num: int=0, day_ro
     min_obs = np.min(states, axis=0)
     day_total_order_num, day_roi = np.array([day_total_order_num]), np.array([day_roi])
     return np.concatenate([mean_obs, std_obs, max_obs, min_obs, day_total_order_num, day_roi], 0)
+
+
